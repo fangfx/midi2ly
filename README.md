@@ -1,3 +1,7 @@
+NOTE: This is not the original MIDI2LY. I forked it to mess around with to learn more about MIDI, so go to https://github.com/gin66/midi2ly for the original.
+
+README from original at time of fork:
+
 MIDI2LY
 -------
 
