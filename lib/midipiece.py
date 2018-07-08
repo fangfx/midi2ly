@@ -63,6 +63,9 @@ class MidiTrack(object):
                 self.time_signature[e.tick] = s
             if type(e) is midi.events.NoteOnEvent and e.velocity > 0:
                 self.ticks_set.add(e.tick)
+            if type(e) is midi.events.SetTempoEvent:
+                # print("Found tempo change at tick %d to %d microseconds per quarter note" % (e.tick, e.mpqn))
+                self.tempos.append((e.tick,e.mpqn))
 
         transient = {}
         note_i = 0
@@ -106,7 +109,6 @@ class MidiPiece(object):
     def __init__(self, midi_fn, verbose):
         super(MidiPiece, self).__init__()
         self.midi_fn    = midi_fn
-        self.pattern    = None
         self.tempos     = dict()
         self.tracks     = {}
         self.ticks_s    = set()
@@ -114,23 +116,27 @@ class MidiPiece(object):
 
         # read the file into the pattern and get the resolution
         try:
-            self.pattern = midi.read_midifile(midi_fn)
+            pattern = midi.read_midifile(midi_fn)
         except TypeError as e:
             print('Cannot read "%s" as midifile' % midi_fn)
             print('Exception says: %s' % e)
             sys.exit(2)
-        self.resolution = self.pattern.resolution
+        self.resolution = pattern.resolution
         
         index = 0
-        for p in self.pattern:
+        for p in pattern:
             track = MidiTrack(index, p, verbose)
             if (track.key not in self.tracks) and track.notes:
-                print("Found notes in track %d" % index)
-                # put all ticks into ticks set and sort them
+                print("Found %d notes in track %d" % (len(track.notes), index))
+                # put all ticks into ticks set
                 self.ticks_s = self.ticks_s | track.ticks_set
-                self.ticks_l = sorted(list(self.ticks_s))
                 # put track into tracks set
                 self.tracks[track.key] = track
+            elif (track.key not in self.tracks) and track.tempos:
+                print("Found %d tempos in track %d" % (len(track.tempos), index))
             else:
-                print("No notes in track %d" % index)
+                print("No notes found in track %d" % index)
             index += 1
+        self.ticks_l = sorted(list(self.ticks_s))
+        for t in self.tracks:
+            print("Track %s" % t)
