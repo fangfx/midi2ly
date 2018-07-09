@@ -19,12 +19,15 @@ class MidiNote(object):
         self.note        = midi.constants.NOTE_VALUE_MAP_FLAT[pitch]
         self.duration    = duration_t
         self.tick        = tick
-        self.ms          = 0
+        self.us          = 0            # microseconds
         self.duration_t  = duration_t
-        self.duration_ms = 0
+        self.duration_us = 0            # microseconds
         self.extended    = extended
 
-        # add a function to change ms and duration_ms
+    # add a function to change us and duration_us
+    def set_us(self, tick2us):
+        self.us          = tick2us(self.tick)
+        self.duration_us = tick2us(self.duration_t)
 
 class MidiTrack(object):
     """docstring for MidiTrack"""
@@ -39,7 +42,7 @@ class MidiTrack(object):
         self.notes          = []
         self.note_ct_128    = [0]*128
         self.note_ct_12     = [0]*12
-        self.tempos         = []
+        self.tempos         = dict()
 
         for e in pattern:
             if type(e) is midi.events.TrackNameEvent:
@@ -65,7 +68,7 @@ class MidiTrack(object):
                 self.ticks_set.add(e.tick)
             if type(e) is midi.events.SetTempoEvent:
                 # print("Found tempo change at tick %d to %d microseconds per quarter note" % (e.tick, e.mpqn))
-                self.tempos.append((e.tick,e.mpqn))
+                self.tempos[e.tick] = e.mpqn
 
         transient = {}
         note_i = 0
@@ -110,6 +113,7 @@ class MidiPiece(object):
         super(MidiPiece, self).__init__()
         self.midi_fn    = midi_fn
         self.tempos     = dict()
+        self.tempo2us   = dict()
         self.tracks     = {}
         self.ticks_s    = set()
         self.ticks_l    = []
@@ -123,6 +127,7 @@ class MidiPiece(object):
             sys.exit(2)
         self.resolution = pattern.resolution
         
+        # read each track of the pattern and try to get all the notes and tempos
         index = 0
         for p in pattern:
             track = MidiTrack(index, p, verbose)
@@ -134,9 +139,36 @@ class MidiPiece(object):
                 self.tracks[track.key] = track
             elif (track.key not in self.tracks) and track.tempos:
                 print("Found %d tempos in track %d" % (len(track.tempos), index))
+                self.tempos.update(track.tempos)
             else:
                 print("No notes found in track %d" % index)
             index += 1
         self.ticks_l = sorted(list(self.ticks_s))
+        
+        # populate the tempo conversion dictionary
+        if self.tempos:
+            print("finding microseconds per key")
+            tempoticks = sorted(list(self.tempos.keys()))
+            tempoticks.append(self.ticks_l[-1])
+            
+            # up to the tick, add microseconds together
+            us_ct = 0
+            pr_tick = tempoticks[0]
+            for i in range(1, len(tempoticks)):
+                tick = tempoticks[i]
+                self.tempo2us[pr_tick] = us_ct
+                us_ct += (tick - pr_tick)*self.tempos[pr_tick]
+                pr_tick = tick
+
+        # convert all notes to microseconds
         for t in self.tracks:
-            print("Track %s" % t)
+            # print("Track %s" % t)
+            # print("at tick %d is " % self.tracks[t].notes[200].tick)
+            # print(self.tick2us(self.tracks[t].notes[200].tick))
+            for n in self.tracks[t].notes:
+                n.set_us(self.tick2us)
+
+    def tick2us(self, tick):
+        tempoticks = sorted([t for t in self.tempos.keys() if t < tick])
+        last = tempoticks[-1]
+        return self.tempo2us[last] + (tick - last)*self.tempos[last]
