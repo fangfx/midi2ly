@@ -16,6 +16,7 @@ class MidiNote(object):
         self.index       = index
         self.track       = track
         self.pitch       = pitch
+        self.velocity    = velocity
         self.note        = midi.constants.NOTE_VALUE_MAP_FLAT[pitch]
         self.duration    = duration_t
         self.tick        = tick
@@ -140,14 +141,13 @@ class MidiPiece(object):
             elif (track.key not in self.tracks) and track.tempos:
                 print("Found %d tempos in track %d" % (len(track.tempos), index))
                 self.tempos.update(track.tempos)
-            else:
-                print("No notes found in track %d" % index)
+            # else:
+            #     print("No notes found in track %d" % index)
             index += 1
         self.ticks_l = sorted(list(self.ticks_s))
         
         # populate the tempo conversion dictionary
         if self.tempos:
-            print("finding microseconds per key")
             tempoticks = sorted(list(self.tempos.keys()))
             tempoticks.append(self.ticks_l[-1])
             
@@ -169,6 +169,10 @@ class MidiPiece(object):
                 n.set_us(self.tick2us)
 
     def tick2us(self, tick):
+        default_MIDI_tempo = 500000
         tempoticks = sorted([t for t in self.tempos.keys() if t < tick])
-        last = tempoticks[-1]
-        return self.tempo2us[last] + (tick - last)*self.tempos[last]
+        last = 0
+        if tempoticks:
+            last = tempoticks[-1]    
+            return (self.tempo2us[last] + (tick - last)*self.tempos[last])/float(self.resolution)
+        return tick*default_MIDI_tempo/float(self.resolution)
