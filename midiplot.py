@@ -47,6 +47,8 @@ print(pieces[0].resolution)
 # print(pieces[0].tempos[0])
 colors = ["r", "b", "g"]
 
+
+# plot comparison plots and share the y axis (notes)
 plt.figure()
 fig, axes = plt.subplots(nrows=len(pieces), ncols=1, sharey='all', figsize=(16,3.5*len(pieces)))
 ct = 0
@@ -68,10 +70,64 @@ cb.set_label("Duration of Note (s)")
 plt.subplots_adjust(hspace=0.3, wspace=0.1, right=0.85)
 plt.savefig(args.filename[:-4]+ ".png")#, format='eps')
 plt.close()
-# https://matplotlib.org/examples/pylab_examples/shared_axis_demo.html
 # if shared axis looks weird, can scale the duration colors by total length
 # if do, then save a comparison of before and after length normalization to show in thesis
 
+# plot the comparison plots and share the x axis (time)
+plt.figure()
+fig, axes = plt.subplots(nrows=len(pieces), ncols=1, sharex='all', sharey='all', figsize=(16,3.5*len(pieces)))
+ct = 0
+for piece, name, ax in zip(pieces, names, axes.flat):
+    # find the seconds, ticks, pitches, velocities, durations and make separate lists for each
+    s_tick_pitch_vel_dur = [[float(n.us)/1000000, n.tick, n.pitch, n.velocity, float(n.duration_us)/1000000] for track in piece.tracks for n in piece.tracks[track].notes]
+    x, t, p, v, d = map(list,zip(*s_tick_pitch_vel_dur))
+
+    # create subplots and display them
+    ax.grid()
+    ax.set(xlabel="Start times (s) for %s" % name, ylabel="Midi Note")
+    # plt.ylim(20,100)
+    im = ax.scatter(x, p, marker='x', c=d, cmap='copper_r')
+
+cbaxes = fig.add_axes([0.9, 0.1, 0.02, 0.8]) # left, bottom, width, height
+cb = plt.colorbar(im, cax = cbaxes)  
+
+cb.set_label("Duration of Note (s)")
+plt.subplots_adjust(hspace=0.3, wspace=0.1, right=0.85)
+plt.savefig(args.filename[:-4]+ "_share_time.png")#, format='eps')
+plt.close()
+
+# plot the comparison plots and also highlight the top 3 notes
+plt.figure()
+fig, axes = plt.subplots(nrows=len(pieces), ncols=1, sharey='all', figsize=(16,3.5*len(pieces)))
+ct = 0
+for piece, name, ax in zip(pieces, names, axes.flat):
+    # find the seconds, ticks, pitches, velocities, durations and make separate lists for each
+    s_tick_pitch_vel_dur = [[float(n.us)/1000000, n.tick, n.pitch, n.velocity, float(n.duration_us)/1000000] for track in piece.tracks for n in piece.tracks[track].notes]
+    x, t, p, v, d = map(list,zip(*s_tick_pitch_vel_dur))
+
+    # create subplots and display them
+    ax.grid()
+    ax.set(xlabel="Start times (s) for %s" % name, ylabel="Midi Note")
+    # plt.ylim(20,100)
+    im = ax.scatter(x, p, marker='x', c=d, cmap='copper_r')
+    # figure out what the top 3 are
+    note_ct_12_totals = list(map(sum, zip(*[piece.tracks[track].note_ct_12 for track in piece.tracks])))
+    print(note_ct_12_totals)
+    top3tuple = sorted(zip(note_ct_12_totals,range(12)), reverse=True)[:3]
+    print(top3tuple)
+    top3 = [name for (num, name) in top3tuple]
+    print(top3)
+    highlight_s_t_p_v_d = [note for note in s_tick_pitch_vel_dur if note[2] % 12 in top3]
+    highlight_x, _, highlight_p, _, _ = map(list,zip(*highlight_s_t_p_v_d))
+    ax.scatter(highlight_x, highlight_p, marker=".", color="r") # doesn't show up
+
+cbaxes = fig.add_axes([0.9, 0.1, 0.02, 0.8]) # left, bottom, width, height
+cb = plt.colorbar(im, cax = cbaxes)  
+
+cb.set_label("Duration of Note (s)")
+plt.subplots_adjust(hspace=0.3, wspace=0.1, right=0.85)
+plt.savefig(args.filename[:-4]+ "_top3.png")#, format='eps')
+plt.close()
 
 # =============================================================================================================
 # =======================================    plot notes against time, in microseconds and in ticks
