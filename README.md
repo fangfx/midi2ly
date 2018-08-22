@@ -99,3 +99,57 @@ And run it with
 
     docker run -it --rm -v "`pwd`":/in midi2ly -L 2 -P 3,4 Randy\ Newman\ -\ When\ I\ am\ Gone.mid >RN.ly
 
+
+
+Notes:
+------
+
+
+- Use dicts until find a good algorithm, then  make sql database
+- Try to figure out a good window for queries (say, 10 seconds or something) 
+- Aim for 40 pages, including bibliography 
+- Mention all the things that didn't work 
+- Mention the useful values/parameters 
+- For a song in the same key for the enyire duration, test the sample length required to get stable identification of tonic, and whether or not it needs to be weighted by note length
+- Pennsylvania and Orchard
+
+plot the FFT of the space between notes
+
+weight by duration and velocity (times the number of occurrences by that)
+use actual input
+subtract the average of the area around each note to get the local changes
+
+take several recordings of the same thing and see if we can get the same anchor points
+Use velocity, duration, or some "or" of it to get the anchor points
+find some window long enough to can see what's going on and short enough that the computation is not huge
+try using every single note as an anchor, use 5 or 10-second "songs" and see how long it takes to compute the database
+use exact same window first, then use overlapping windows later
+
+take notes on what I'm doing
+
+FIND GOOD MIDI FILES/EXAMPLES
+http://www-etud.iro.umontreal.ca/~boulanni/icml2012
+https://colinraffel.com/projects/lmd/
+https://www.reddit.com/r/datasets/comments/3akhxy/the_largest_midi_collection_on_the_internet/
+https://www.reddit.com/r/datasets/comments/4ews87/large_collection_midi_song_data/
+https://github.com/craffel/midi-dataset
+
+found this helpful
+https://medium.com/@colinwren/visualising-midi-files-with-python-b221feacd762
+
+write more background and what stuff already exists
+
+look for more pairs of the same song and use these
+
+-look for anchor points
+-try highlighting the 3 most popular (by duration) notes (1-12) in the spectrogram
+-highlight the top 25% notes by duration or velocity differences
+-compare two renditions of same piece and see if most common notes are the same
+-compare two renditions of same piece and see if the anchor points (highlight them) picked are the same
+
+look for parameters for boxes
+compare two renditions of same piece and see how many hashes overlap
+
+
+FIX THE TIME TICK PROBLEM
+
