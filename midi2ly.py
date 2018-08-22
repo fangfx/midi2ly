@@ -1,4 +1,10 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3.5
+
+# copied model, processing, and most variable names from midi2ly.py 
+# from https://github.com/gin66/midi2ly/
+# and changed whatever I needed for my spectrograms
+# please see original for difference
+
 import sys
 sys.path.append('python_midi')
 import argparse
@@ -8,53 +14,13 @@ import lib.lilypond  as lilypond
 import lib.key_guess as key_guess
 from   lib.miditrack import *
 
-def get_title_composer_from(args):
-    global title
-    global composer
-    title    = 'Unknown Title'
-    composer = 'Unknown Composer'
-    finfo = re.sub('\.[mM][iI][dD][iI]?','',args.midifile)
-    if finfo != args.midifile:
-        finfo = re.split(' *- *',finfo)
-        if len(finfo) == 2:
-            title    = finfo[1] if args.comp_first else finfo[0]
-            composer = finfo[0] if args.comp_first else finfo[1]
-    if args.title is not None:
-        title    = args.title[0]
-    if args.composer is not None:
-        composer = args.composer[0]
-
 parser = argparse.ArgumentParser(description= \
-        'Tool to convert a midi-file (e.g. from Logic Pro/X) to lilypond format\n'+
-        'The midi-filename should be "<Title> - <Composer>.mid" or ".midi".\n'+
-        'If title and composer are reversed, then use the -r switch.\n'+
-        'Otherwise provide title and composer via commandline switch (-t/-c).\n'
-        'Output is defined by the -D/-P/-V/-L switches.')
-parser.add_argument('-o', nargs=1, dest='file',     help='Output processing result to file')
+        'Read MIDI file and output some spectrograms')
 parser.add_argument('-t', nargs=1, dest='title',    help='Title of the song')
 parser.add_argument('-c', nargs=1, dest='composer', help='Composer of the song')
-parser.add_argument('-r', action='store_true', dest='comp_first', help='Composer and Title reversed in filename')
-parser.add_argument('-n', action='store_true', dest='no_repeat', help='Do not use repeats')
-parser.add_argument('-l', action='store_true', dest='list', help='List all tracks in midi-file')
 parser.add_argument('-v', action='store_true', dest='verbose', help='Include verbose information in output')
-parser.add_argument('-V', nargs=1, dest='voice_list', default=[],help='Select tracks as voice  for output e.g. -V 1,2,3 ')
-parser.add_argument('-D', nargs=1, dest='drum_list',  default=[],help='Select tracks as drums  for output e.g. -D 1,2,3 ')
-parser.add_argument('-P', nargs=1, dest='piano_list', default=[],help='Select tracks as piano  for output e.g. -P 1,2,3 ')
-parser.add_argument('-L', nargs=1, dest='lyrics_list',default=[],help='Select tracks as lyrics for output e.g. -L 1,2,3 ')
 parser.add_argument('midifile', help='Midifile to be processed')
 args = parser.parse_args()
-
-get_title_composer_from(args)
-if args.file is not None:
-    sys.stdout = open(args.file[0], 'w')
-
-for ax in [args.voice_list,args.drum_list,args.piano_list,args.lyrics_list]:
-    if ax is not None:
-        oldlist = ax.copy()
-        ax.clear()
-        while len(oldlist) > 0:
-            ol = oldlist.pop()
-            ax += ol.split(',')
 
 midifile = args.midifile
 try:
@@ -101,17 +67,6 @@ key_tracks = [ mt for mt in MidiTrack.tracklist if mt.output_piano or mt.output_
 # Tuples with (starttick,endtick,key,stats)
 key_list = key_guess.calculate(key_tracks)
 print('%% KEYS: ',key_list)
-
-for mt in MidiTrack.tracklist:
-    mt.convert_notes_to_bars_as_lilypond()
-    mt.convert_lyrics_to_bars_as_lilypond()
-
-if not args.no_repeat:
-    MidiTrack.identify_repeats()
-    for mt in MidiTrack.tracklist:
-        mt.collect_lyrics_for_repeats()
-
-bar_deco = MidiTrack.get_bar_decorators_with_repeat(key_list)
 
 if False:
     del_silence = True
