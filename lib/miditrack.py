@@ -1,5 +1,4 @@
 import python_midi   as midi
-import lib.lilypond  as lilypond
 
 class MidiNote(object):
     count = 0
@@ -20,22 +19,6 @@ class MidiNote(object):
                 % (self.index,self.note,self.pitch,self.velocity,\
                    self.duration, '~' if self.extended else '|', \
                    self.track,self.at_tick)
-
-    __repr__ = __str__
-
-class MidiLyric(object):
-    count = 0
-
-    def __init__(self,track,text,at_tick):
-        MidiLyric.count += 1
-        self.index    = MidiLyric.count
-        self.track    = track
-        self.text     = text.replace('\r',' ').replace('\n',' ')
-        self.at_tick  = at_tick
-
-    def __str__(self):
-        return 'Lyric(%d %s) in %r at %d' \
-                % (self.index,self.text,self.track,self.at_tick)
 
     __repr__ = __str__
 
@@ -62,119 +45,6 @@ class MidiTrack(object):
             st += 4*cls.resolution
 
     @classmethod
-    def identify_repeats(cls):
-        # join all lilypond representation of all bars together
-        # Only bars to be printed have those. No further selection needed.
-        bar_dict = {}
-        max_bar = len(cls.bars)
-        for i in range(max_bar):
-            bdata = ''
-            for mt in cls.tracklist:
-                if len(mt.bar_lily_notes) > i:
-                    bdata += mt.bar_lily_notes[i]
-            if bdata in bar_dict:
-                bar_dict[bdata].append(i)
-            else:
-                bar_dict[bdata] = [i]
-            print('%% BAR ',i,bdata)
-        dups = [bar_dict[b] for b in bar_dict if len(bar_dict[b]) > 1]
-
-        dup_dict = {}
-        for d in dups:
-            for v in d[:-1]:
-                dup_dict[v] = d
-
-        # collect here all possible candidates
-        candid=[]
-        for l in range(1,max_bar//2):
-            for start in range(max_bar-l):
-                ok = True
-                for i in range(l):
-                    if start+i not in dup_dict:
-                        ok = False
-                        break
-                if ok:
-                    candid.append([i+start for i in range(l)])
-
-        # Now evaluate all candidates.
-        feasible = []
-        for c in candid:
-            # The first value in the list determines the skip values
-            for alt in dup_dict[c[0]]:
-                delta = alt-c[0]
-                if delta < len(c):
-                    continue
-
-                for repeat in range(4,0,-1):
-                    ok = True
-                    for v in c:
-                        for r in range(1,repeat+1):
-                            if v+r*delta not in dup_dict[v]:
-                                ok = False
-
-                    if ok:
-                        for r in range(repeat,0,-1):
-                            feasible.append( (c,delta,delta-len(c),repeat) )
-                        break
-
-        # Filter out those, which do not make too much sense
-        feasible = [f for f in feasible if f[1]-f[2] > f[2]//3 ]
-
-        # then sort them
-        feasible = sorted(feasible,key=lambda x:(x[1]-x[2])*x[3],reverse=True)
-
-        for c in feasible:
-            print('%% feasible:',c)
-
-        best_used = []
-        best_red  = 0
-        for i in range(len(feasible)):
-            used = []
-            reduced = 0
-            # First check for volta repeats, which cannot be nested
-            for f in feasible[i:]:
-                c,delta,skip,repeat = f
-                #if skip <= delta//2 and delta >= 2:
-                start,end = c[0],c[0]+delta*(repeat+1)-1
-                ok = True
-                for cx,deltax,skipx,repeatx,typ in used:
-                    startx,endx = cx[0],cx[0]+deltax*(repeatx+1)-1
-                    if endx < start or startx > end:
-                        continue
-                    ok = False
-                    break
-                if ok:
-                    reduced += (delta-skip)*repeat
-                    used.append( (c,delta,skip,repeat,'volta' if delta > 2 else 'percent') )
-
-            # Then check for percent repeats, which can be nested in volta
-            for f in feasible[i:]:
-                c,delta,skip,repeat = f
-                #if skip <= delta//2 and delta >= 2:
-                start,end = c[0],c[0]+delta*(repeat+1)-1
-                ok = True
-                for cx,deltax,skipx,repeatx,typx in used:
-                    startx,inner_endx,endx = cx[0],cx[0]+delta*repeat-1-skip,cx[0]+deltax*(repeatx+1)-1
-                    if endx < start or startx > end:
-                        continue
-                    if typx == 'volta' and start > startx and end <= inner_endx:
-                        continue
-                    ok = False
-                    break
-                if ok:
-                    reduced += (delta-skip)*repeat
-                    used.append( (c,delta,skip,repeat,'percent') )
-
-            if reduced > best_red:
-                best_red  = reduced
-                best_used = used
-
-        for f in best_used:
-            print('%% Used repeat xxx:',best_red,f)
-
-        cls.repeats = best_used
-
-    @classmethod
     def get_bar_decorators_with_repeat(cls,key_list):
         repeats = cls.repeats
         max_bar = len(cls.bars)
@@ -185,7 +55,6 @@ class MidiTrack(object):
                                'pre'      : '',
                                'fmt_voice': '%(bol)s %(key)s %(timesig)s %(pre)s %(bar)s %(post)s  %% %(info)s',
                                'fmt_drum' : '%(bol)s %(timesig)s %(pre)s %(bar)s %(post)s  %% %(info)s',
-                               'fmt_lyric': '%(bol)s %(pre)s %(bar)s %(post)s  %% %(info)s',
                                'post'     : ' |',
                                'key'      : '',
                                'timesig'  : '',
@@ -295,14 +164,10 @@ class MidiTrack(object):
         instance.notecount_128  = [0]*128
         instance.notecount_12   = [0]*12
         instance.notes          = []
-        instance.lyrics         = []
         instance.output         = False
         instance.output_piano   = False
         instance.output_drums   = False
         instance.output_voice   = False
-        instance.output_lyrics  = False
-        instance.bar_lily_notes = []
-        instance.bar_lily_words = []
         MidiTrack.tracks[key]   = instance
         MidiTrack.tracklist.append(instance)
         return instance
@@ -332,11 +197,6 @@ class MidiTrack(object):
         for e in pattern:
             if verbose:
                 print('%% Event: ',e)
-            if type(e) is midi.events.LyricsEvent:
-                lyr = MidiLyric(self,e.text,e.tick)
-                self.lyrics.append(lyr)
-                if verbose:
-                    print('%% => ',lyr)
 
             if type(e) is midi.events.NoteOnEvent and e.velocity > 0:
                 if e.pitch in transient:
@@ -372,25 +232,6 @@ class MidiTrack(object):
         s_bass   = sum(self.notecount_128[:60])
         s_treble = sum(self.notecount_128[60:])
         return s_bass < s_treble
-
-    def trim_lyrics(self):
-        # Trim lyrics to 1/32 note (1/64 cannot be handled by latter processing)
-        # If needed concatenate lyrics
-        res = MidiTrack.resolution // 8
-        ly = sorted(self.lyrics,key=lambda l:l.at_tick)
-        for l in ly:
-            l.at_tick = ((l.at_tick+res//2)//res)*res
-
-        i = 1
-        while i < len(ly):
-            l1 = ly[i-1]
-            l2 = ly[i]
-            if l1.at_tick == l2.at_tick:
-                l1.text += ' ' + l2.text
-                ly.pop(i)
-            else:
-                i += 1
-        self.lyrics = ly
 
     def trim_notes(self):
         # Trim notes on 1/32 note (1/64 cannot be handled by latter processing)
@@ -445,122 +286,6 @@ class MidiTrack(object):
                         n.extended = True
                     break
         self.notes = self.sort_notes(newnotes)
-
-    def collect_lyrics_for_repeats(self):
-        if not self.output_lyrics:
-            return
-
-        words = [[bar] for bar in self.bar_lily_words[0] ]
-
-        repeats = MidiTrack.repeats
-        for c,delta,skip,repeat,typ in repeats:
-            if typ == 'volta':
-                bars = []
-                for i in range(delta-skip):
-                    bx = words[c[0]+i]
-                    for r in range(1,repeat+1):
-                        bx += words[c[0]+i+r*delta]
-        n = max(len(bx) for bx in words)
-
-        wnew = []
-        for i in range(n):
-            wx = []
-            wnew.append(wx)
-            for bx in words:
-                wx.append('" "1' if i >= len(bx) else bx[i])
-
-        self.bar_lily_words = wnew
-
-    def convert_lyrics_to_bars_as_lilypond(self):
-        if not self.output_lyrics:
-            return
-
-        lyric_bars = []
-        for bs,be in MidiTrack.bars:
-            bar = [l for l in self.lyrics if bs <= l.at_tick and be > l.at_tick]
-            bar = sorted(bar,key=lambda l:l.at_tick)
-
-            tick    = bs
-            lilybar = []
-            last = ' '
-            for l in bar:
-                print('%% ',tick,l)
-                dt = l.at_tick - tick
-                if dt > 0:
-                    dur,dt = lilypond.select_duration(tick,be+1,dt,MidiTrack.resolution*4)
-                    lilybar.append('"%s"%s' % (last,dur[0]))
-                    for d in dur[1:]:
-                        lilybar.append('" "%s' % d)
-                last = l.text.replace('"','\\"')
-                tick += dt
-            dt = be+1-tick
-            dur,dt = lilypond.select_duration(tick,be+1,dt,MidiTrack.resolution*4)
-            lilybar.append('"%s"%s' % (last,dur[0]))
-            for d in dur[1:]:
-                lilybar.append('" "%s' % d)
-            lilybar = ' '.join(lilybar)
-            lyric_bars.append(lilybar)
-            print('%% -> ',lilybar)
-        self.bar_lily_words.append(lyric_bars)
-
-    def convert_notes_to_bars_as_lilypond(self):
-        if not self.output:
-            return
-        for n in self.notes:
-            if self.output_piano or self.output_voice:
-                n.lily = lilypond.NOTE[n.pitch]
-            elif self.output_drums:
-                n.lily = lilypond.PERC[n.pitch]
-
-        if self.output_drums or self.output_voice or self.output_piano:
-            for bs,be in MidiTrack.bars:
-                bar = [n for n in self.notes if bs <= n.at_tick and be > n.at_tick]
-                print('%% Convert bar to lilypond (%d-%d) ticks' % (bs,be))
-                for n in bar:
-                    print('%%      ',n)
-                l = self.__to_lily__(bar,bs,be)
-                self.bar_lily_notes.append(l)
-                print('%%  -> ',l)
-
-    def __to_lily__(self,bar,bs,be):
-        l = []
-        tick = bs
-        while tick <= be:
-            notes     = [n for n in bar if n.at_tick >= tick]
-            if len(notes) == 0:
-                dt = be+1 - tick
-            else:
-                next_tick = min(n.at_tick for n in notes)
-                notes     = [n for n in bar if n.at_tick == next_tick]
-                dt = next_tick - tick
-
-            intmed   = ''
-            extended = ''
-            if dt > 0:  # need pause
-                dur,dt = lilypond.select_duration(tick,be+1,dt,MidiTrack.resolution*4)
-                ls = 'r'
-            elif len(notes) > 0:
-                intmed   = '~'
-                extended = ''
-                dt = notes[0].duration
-                dur,dt = lilypond.select_duration(tick,be+1,dt,MidiTrack.resolution*4)
-                ls = []
-                if len(notes) > 1:
-                    ls.append('<')
-                for n in notes:
-                    ls.append(n.lily)
-                    if n.extended:
-                        extended = '~'
-                if len(notes) > 1:
-                    ls.append('>')
-                ls = ' '.join(ls)
-
-            tick += dt
-            l.append(intmed.join(ls+d for d in dur)+extended)
-
-        if tick-be != 1:
-            raise Exception('Internal Error %d != %d + 1' % (tick,be))
-        return ' '.join(l)
 
     def __str__(self):
         s  = 'Track(%s,%s)' % (self.trackname,self.instrument)
