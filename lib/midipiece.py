@@ -133,13 +133,13 @@ class MidiPiece(object):
         for p in pattern:
             track = MidiTrack(index, p, verbose)
             if (track.key not in self.tracks) and track.notes:
-                print("Found %d notes in track %d" % (len(track.notes), index))
+                # print("Found %d notes in track %d" % (len(track.notes), index))
                 # put all ticks into ticks set
                 self.ticks_s = self.ticks_s | track.ticks_set
                 # put track into tracks set
                 self.tracks[track.key] = track
             elif (track.key not in self.tracks) and track.tempos:
-                print("Found %d tempos in track %d" % (len(track.tempos), index))
+                # print("Found %d tempos in track %d" % (len(track.tempos), index))
                 self.tempos.update(track.tempos)
             # else:
             #     print("No notes found in track %d" % index)
