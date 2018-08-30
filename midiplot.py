@@ -60,19 +60,18 @@ def get_x_t_p_v_d(p, n):
 def mins_maxes(xtpvd):
     ymax = 60
     ymin = 60
-    xmax = 0
+    xmaxes = []
 
     for piece in xtpvd:
         x = piece[0]
         p = piece[2]
         ymax = max(ymax, max(p))
         ymin = min(ymin, min(p))
-        xmax = max(xmax, max(x))
+        xmaxes.append((int(max(x)) // 30 + 1) * 30) 
 
     ymax = (ymax // 12 + 1) * 12
     ymin = (ymin // 12) * 12
-    xmax = (int(max(x)) // 30 + 1) * 30
-    return ymax, ymin, xmax
+    return ymax, ymin, xmaxes
 
 def treble_bass(xtpvd, threshold):
     tb = []
@@ -286,18 +285,18 @@ def find_matches(xtpvd):
     return matches
 
 data = get_x_t_p_v_d(pieces, names)
-ymax, ymin, xmax = mins_maxes(data)
+ymax, ymin, xmaxes = mins_maxes(data)
 matches = find_matches(data)
 treblebass = treble_bass(data, 0.8)
 
 # compare_shared_y(pieces, names, data, ymax, ymin)
-compare_shared_x_y(pieces, names, data, ymax, ymin, xmax)
+compare_shared_x_y(pieces, names, data, ymax, ymin, max(xmaxes))
 # compare_and_highlight_top(pieces, names, data, ymax, ymin, 1)
 totct, note_cts_norm, note_dur_norm = compare_and_highlight_top(pieces, names, data, ymax, ymin, 3)
 prefix = args.filename[:-4]
 fn = prefix + ".info"
 f = open(fn, "w+")
-for ctsdist, durdist, tb, match in zip(note_cts_norm, note_dur_norm, treblebass, matches):
+for xmax, ctsdist, durdist, tb, match in zip(xmaxes, note_cts_norm, note_dur_norm, treblebass, matches):
     f.write("\"%s\"," % (prefix.split('/')[-1])) # name of the file without its extension
     f.write("\"%d\"," % len(data))               # how many files for this song
     f.write("\"%d\"," % totct)                   # total number of notes in the file
@@ -308,6 +307,7 @@ for ctsdist, durdist, tb, match in zip(note_cts_norm, note_dur_norm, treblebass,
     f.write("\"%s\"," % str(tb))                 # treble, bass, or neither
     f.write("\"%s\"," % str(match))              # files it matched in time ticks and pitch
     f.write("\n")
+    # TODO: look for the histograms that are mostly zero, except 1 or 2 notes, and making note of that
 f.close()
 
 
